@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR Motion Game: คิดแยกแยะประโยชน์ส่วนตนและส่วนรวม (ฐาน 2 vs ฐาน 10)</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Kanit', 'Prompt', 'sans-serif'],
+          },
+          colors: {
+            cyber: {
+              bg: '#0a0f1d',
+              card: '#131b2e',
+              primary: '#00f0ff',
+              secondary: '#ff007f',
+              success: '#00ff66',
+              warning: '#ffb700',
+              accent: '#8b5cf6'
+            }
+          },
+          boxShadow: {
+            'neon-cyan': '0 0 20px rgba(0, 240, 255, 0.5), inset 0 0 10px rgba(0, 240, 255, 0.3)',
+            'neon-pink': '0 0 20px rgba(255, 0, 127, 0.5), inset 0 0 10px rgba(255, 0, 127, 0.3)',
+            'neon-green': '0 0 20px rgba(0, 255, 102, 0.5), inset 0 0 10px rgba(0, 255, 102, 0.3)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- MediaPipe Pose & Camera Utilities -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+  <style>
+    body {
+      font-family: 'Kanit', sans-serif;
+      background-color: #060913;
+      color: #f3f4f6;
+      overflow-x: hidden;
+      user-select: none;
+    }
+    
+    /* Mirror styling for camera preview canvas */
+    .mirror-canvas {
+      transform: scaleX(-1);
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 0.8; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.03); }
+    }
+
+    .animate-pulse-glow {
+      animation: pulse-glow 2s infinite ease-in-out;
+    }
+
+    .glass-panel {
+      background: rgba(19, 27, 46, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Target Zone Glowing Borders */
+    .zone-base2 {
+      border: 3px solid #00ff66;
+      box-shadow: 0 0 25px rgba(0, 255, 102, 0.4);
+    }
+    .zone-base10 {
+      border: 3px solid #ff007f;
+      box-shadow: 0 0 25px rgba(255, 0, 127, 0.4);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center bg-cyber-bg relative overflow-hidden">
+
+  <!-- Top Global Header -->
+  <header class="w-full max-w-7xl px-4 py-3 flex justify-between items-center z-50">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+        <i class="fa-solid fa-shield-halved text-xl text-white"></i>
+      </div>
+      <div>
+        <h1 class="text-lg md:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-teal-300 to-green-400">
+          AR Anti-Corruption Dilemma
+        </h1>
+        <p class="text-xs text-gray-400 hidden sm:block">หลักสูตรคุณธรรม: คิดแยกแยะประโยชน์ส่วนตนและส่วนรวม (ระบบคิดฐาน 2 vs ฐาน 10)</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <!-- Mute/Unmute Sound Button -->
+      <button id="muteBtn" onclick="toggleAudio()" class="px-3 py-2 rounded-xl glass-panel text-cyan-400 hover:text-white hover:bg-cyan-500/20 transition duration-200 flex items-center gap-2 border border-cyan-500/30 text-sm">
+        <i id="muteIcon" class="fa-solid fa-volume-high"></i>
+        <span id="muteText" class="hidden md:inline">เปิดเสียง</span>
+      </button>
+
+      <!-- Guide Info Toggle -->
+      <button onclick="toggleHelpModal()" class="px-3 py-2 rounded-xl glass-panel text-amber-400 hover:text-white hover:bg-amber-500/20 transition duration-200 flex items-center gap-2 border border-amber-500/30 text-sm">
+        <i class="fa-solid fa-circle-question"></i>
+        <span class="hidden md:inline">คู่มือ</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Interactive Area -->
+  <main class="w-full max-w-6xl px-2 sm:px-4 flex-1 flex flex-col items-center justify-center relative z-10 my-2">
+
+    <!-- ========================================== -->
+    <!-- SCREEN 1: START & PREPARATION SCREEN       -->
+    <!-- ========================================== -->
+    <div id="startScreen" class="w-full max-w-3xl glass-panel rounded-3xl p-6 md:p-8 flex flex-col items-center text-center shadow-2xl relative border border-cyan-500/20">
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-xs font-semibold mb-4">
+        <i class="fa-solid fa-camera"></i> ระบบ AR Camera Gesture Control
+      </div>
+
+      <h2 class="text-2xl md:text-4xl font-extrabold text-white mb-3 leading-tight">
+        การทดสอบตัดสินใจทางจริยธรรม <br>
+        <span class="bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500">
+          "Dilemma Case Matrix"
+        </span>
+      </h2>
+
+      <p class="text-gray-300 text-sm md:text-base max-w-xl mb-6 leading-relaxed">
+        ใช้การเคลื่อนไหวของ <span class="text-cyan-300 font-semibold">มือทั้งสองข้าง</span> ในการวิเคราะห์สถานการณ์เพื่อเลือกแยกแยะระหว่าง 
+        <strong class="text-emerald-400">ระบบคิดฐาน 2 (ไม่ปะปน/ประโยชน์ส่วนรวม)</strong> และ 
+        <strong class="text-pink-400">ระบบคิดฐาน 10 (อนุโลม/ปะปนประโยชน์ส่วนตน)</strong>
+      </p>
+
+      <!-- Instructions Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mb-6 text-left">
+        <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/60 flex flex-col items-center text-center">
+          <div class="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-xl mb-2">
+            <i class="fa-solid fa-user-check"></i>
+          </div>
+          <h3 class="text-white text-sm font-bold mb-1">1. ตั้งกล้องให้เห็นครึ่งตัว</h3>
+          <p class="text-xs text-gray-400">ยืนหรือนั่งถอยห่างจากกล้องประมาณ 1 - 1.5 เมตร ในที่สว่างเพียงพอ</p>
+        </div>
+
+        <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/60 flex flex-col items-center text-center">
+          <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-xl mb-2">
+            <i class="fa-solid fa-hand-pointer"></i>
+          </div>
+          <h3 class="text-white text-sm font-bold mb-1">2. ยกมือค้างเพื่อเลือก</h3>
+          <p class="text-xs text-gray-400">ยื่นมือไปยังปุ่มคำตอบฝั่งซ้ายหรือขวา ค้างไว้ 1 วินาทีจนแถบเต็มวง</p>
+        </div>
+
+        <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/60 flex flex-col items-center text-center">
+          <div class="w-12 h-12 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 flex items-center justify-center text-xl mb-2">
+            <i class="fa-solid fa-brain"></i>
+          </div>
+          <h3 class="text-white text-sm font-bold mb-1">3. ยึดระบบคิดฐาน 2</h3>
+          <p class="text-xs text-gray-400">ตอบให้ถูกต้องเพื่อสะสมคะแนนต้านทุจริต ยึดความถูกต้องเป็นหลัก</p>
+        </div>
+      </div>
+
+      <!-- Difficulty / Mode Selector -->
+      <div class="w-full bg-slate-900/90 p-4 rounded-2xl border border-slate-800 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <span class="text-sm font-medium text-gray-300"><i class="fa-solid fa-sliders text-cyan-400 mr-2"></i>ระดับความท้าทายเวลา:</span>
+        <div class="flex gap-2 w-full sm:w-auto">
+          <button onclick="setDifficulty('easy')" id="diffEasy" class="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold border border-emerald-500 bg-emerald-500/20 text-emerald-300">
+            สบายๆ (90s)
+          </button>
+          <button onclick="setDifficulty('normal')" id="diffNormal" class="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold border border-slate-700 text-gray-400 hover:border-cyan-500 hover:text-cyan-300">
+            มาตรฐาน (60s)
+          </button>
+          <button onclick="setDifficulty('hard')" id="diffHard" class="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold border border-slate-700 text-gray-400 hover:border-pink-500 hover:text-pink-300">
+            ท้าทาย (40s)
+          </button>
+        </div>
+      </div>
+
+      <!-- Start Game Button -->
+      <button onclick="initAndStartGame()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 via-teal-400 to-emerald-500 text-slate-950 font-bold text-lg shadow-lg shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] transition duration-200 animate-pulse-glow flex items-center justify-center gap-3">
+        <i class="fa-solid fa-play text-xl"></i> เปิดกล้องและเริ่มเกม AR
+      </button>
+
+      <p id="cameraLoadingText" class="text-xs text-cyan-400 mt-3 hidden">
+        <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> กำลังโหลด AI Pose Model และเปิดกล้อง...
+      </p>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SCREEN 2: MAIN GAMEPLAY & AR CANVAS SCREEN -->
+    <!-- ========================================== -->
+    <div id="gameplayScreen" class="w-full flex-col items-center hidden relative">
+
+      <!-- HUD Top Info Bar -->
+      <div class="w-full max-w-4xl glass-panel rounded-2xl p-3 mb-3 flex justify-between items-center shadow-lg border border-cyan-500/20">
+        <div class="flex items-center gap-4">
+          <!-- Score Badge -->
+          <div class="bg-slate-900/90 border border-emerald-500/40 rounded-xl px-4 py-1.5 flex items-center gap-2">
+            <i class="fa-solid fa-trophy text-amber-400"></i>
+            <div>
+              <div class="text-[10px] text-gray-400 uppercase leading-none">คะแนน</div>
+              <div id="hudScore" class="text-lg font-bold text-emerald-400 leading-tight">0</div>
+            </div>
+          </div>
+
+          <!-- Streak Badge -->
+          <div class="bg-slate-900/90 border border-cyan-500/40 rounded-xl px-3 py-1.5 flex items-center gap-2">
+            <i class="fa-solid fa-bolt text-cyan-400"></i>
+            <div>
+              <div class="text-[10px] text-gray-400 uppercase leading-none">ต่อเนื่อง</div>
+              <div id="hudStreak" class="text-base font-bold text-cyan-300 leading-tight">0x</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Question Counter -->
+        <div class="hidden sm:block text-xs font-semibold text-gray-300 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-700">
+          ข้อที่ <span id="hudQuestionNum" class="text-cyan-400 font-bold">1</span> / <span id="hudTotalQuestions">10</span>
+        </div>
+
+        <!-- Timer Countdown -->
+        <div class="bg-slate-900/90 border border-pink-500/40 rounded-xl px-4 py-1.5 flex items-center gap-2">
+          <i class="fa-solid fa-stopwatch text-pink-500 animate-pulse"></i>
+          <div>
+            <div class="text-[10px] text-gray-400 uppercase leading-none">เวลาเหลือ</div>
+            <div id="hudTimer" class="text-lg font-bold text-pink-400 leading-tight">60s</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Out-of-Frame Warning Alert Banner -->
+      <div id="outOfFrameWarning" class="w-full max-w-4xl bg-amber-500/20 border border-amber-500/50 text-amber-300 text-xs py-1.5 px-4 rounded-xl mb-2 flex items-center justify-center gap-2 hidden animate-pulse">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>ไม่พบพิกัดตัวผู้เล่น! กรุณาขยับให้อยู่ในกรอบสายตากล้อง</span>
+      </div>
+
+      <!-- AR Canvas Viewport Area -->
+      <div class="relative w-full max-w-4xl rounded-3xl overflow-hidden glass-panel border border-cyan-500/30 shadow-2xl bg-black aspect-video flex items-center justify-center">
+        
+        <!-- Video element (Hidden source for Canvas render) -->
+        <video id="webcamVideo" class="hidden" playsinline></video>
+
+        <!-- Canvas rendering WebCam + AI Skeleton + Interactive Zones -->
+        <canvas id="arCanvas" class="w-full h-full object-cover rounded-3xl"></canvas>
+
+        <!-- Scenario Floating Card Overlay inside Canvas Container -->
+        <div id="scenarioBox" class="absolute top-4 left-4 right-4 glass-panel p-4 rounded-2xl border border-cyan-400/40 text-center shadow-xl backdrop-blur-md transition-all duration-300">
+          <div class="flex items-center justify-center gap-2 mb-1">
+            <span class="px-2.5 py-0.5 rounded-md bg-cyan-950 text-cyan-300 text-[11px] font-semibold border border-cyan-500/30 uppercase tracking-wider">
+              Dilemma Case <span id="caseCategory">สถานการณ์ท้าทายจริยธรรม</span>
+            </span>
+          </div>
+          <h3 id="scenarioText" class="text-base sm:text-lg md:text-xl font-bold text-white leading-snug">
+            "กำลังโหลดสถานการณ์ปัญหา..."
+          </h3>
+          <p class="text-xs text-gray-300 mt-1">ยื่นมือไปยังคำตอบฝั่งซ้ายหรือฝั่งขวา ค้างไว้จนแถบวงกลมเต็มวง</p>
+        </div>
+
+        <!-- Feedback Floating Popup Overlay -->
+        <div id="feedbackOverlay" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/85 backdrop-blur-md hidden transition-opacity duration-300 z-30 p-6 text-center">
+          <div id="feedbackIcon" class="w-20 h-20 rounded-full flex items-center justify-center text-4xl mb-3 shadow-2xl">
+            <!-- Dynamic Icon -->
+          </div>
+          <h2 id="feedbackTitle" class="text-2xl font-extrabold mb-2">คำตอบถูกต้อง!</h2>
+          <p id="feedbackDesc" class="text-sm text-gray-200 max-w-md mb-4 leading-relaxed"></p>
+          <div id="feedbackBadge" class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+            ระบบคิดฐาน 2: ประโยชน์ส่วนรวมเด็ดขาด
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Quick Explanation Footer Bar -->
+      <div class="w-full max-w-4xl mt-3 flex justify-between items-center text-xs text-gray-400 px-2">
+        <span><i class="fa-solid fa-hand-fist text-emerald-400 mr-1"></i> ซ้าย: โซนคิดฐาน 2 (ส่วนรวม)</span>
+        <span><i class="fa-solid fa-hand-fist text-pink-400 mr-1"></i> ขวา: โซนคิดฐาน 10 (ส่วนตน/ปะปน)</span>
+      </div>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SCREEN 3: GAME OVER & SUMMARY SCREEN       -->
+    <!-- ========================================== -->
+    <div id="gameOverScreen" class="w-full max-w-3xl glass-panel rounded-3xl p-6 md:p-8 flex flex-col items-center text-center shadow-2xl border border-cyan-500/30 hidden">
+      <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-400 via-emerald-400 to-cyan-500 p-0.5 mb-4 shadow-xl shadow-cyan-500/20">
+        <div class="w-full h-full bg-slate-950 rounded-[22px] flex items-center justify-center">
+          <i class="fa-solid fa-award text-4xl text-amber-400"></i>
+        </div>
+      </div>
+
+      <h2 class="text-3xl font-extrabold text-white mb-1">สรุปผลการวิเคราะห์จริยธรรม</h2>
+      <p class="text-xs text-gray-400 mb-6">หลักสูตรต้านทุจริตศึกษา: การแยกแยะประโยชน์ส่วนตนและประโยชน์ส่วนรวม</p>
+
+      <!-- Grade/Rank Badge -->
+      <div id="rankBadge" class="px-5 py-2 rounded-2xl bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-bold text-lg mb-6 shadow-lg shadow-emerald-500/10">
+        ระดับ: ผู้พิทักษ์ประโยชน์ส่วนรวม (Base-2 Master)
+      </div>
+
+      <!-- Result Stats Matrix Grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full mb-6">
+        <div class="bg-slate-900/90 p-3 rounded-2xl border border-slate-800">
+          <div class="text-[11px] text-gray-400 mb-1">คะแนนรวม</div>
+          <div id="finalScore" class="text-2xl font-bold text-cyan-400">0</div>
+        </div>
+
+        <div class="bg-slate-900/90 p-3 rounded-2xl border border-slate-800">
+          <div class="text-[11px] text-gray-400 mb-1">ตอบถูกต้อง</div>
+          <div id="finalCorrect" class="text-2xl font-bold text-emerald-400">0/10</div>
+        </div>
+
+        <div class="bg-slate-900/90 p-3 rounded-2xl border border-slate-800">
+          <div class="text-[11px] text-gray-400 mb-1">ความแม่นยำ</div>
+          <div id="finalAccuracy" class="text-2xl font-bold text-amber-400">0%</div>
+        </div>
+
+        <div class="bg-slate-900/90 p-3 rounded-2xl border border-slate-800">
+          <div class="text-[11px] text-gray-400 mb-1">ตอบถูกสูงสุด</div>
+          <div id="finalMaxStreak" class="text-2xl font-bold text-purple-400">0x</div>
+        </div>
+      </div>
+
+      <!-- Educational Summary Box -->
+      <div class="w-full bg-slate-900/80 p-4 rounded-2xl border border-cyan-500/20 text-left mb-6 text-xs leading-relaxed text-gray-300">
+        <h4 class="font-bold text-cyan-300 text-sm mb-2 flex items-center gap-2">
+          <i class="fa-solid fa-lightbulb text-amber-400"></i> สรุปข้อคิดคุณธรรม (Base-2 Concept):
+        </h4>
+        <ul class="list-disc pl-4 space-y-1 text-gray-300">
+          <li><strong class="text-emerald-400">ระบบคิดฐาน 2 (Binary Thinking):</strong> เป็นระบบคิดแยกแยะแบบดิจิทัล มีเพียง 0 (ผิด/ไม่ทำ) หรือ 1 (ถูกต้อง/ส่วนรวม) แยกขาดจากกันเด็ดขาด ไม่นำเรื่องส่วนตัวมาปะปนกับหน้าที่</li>
+          <li><strong class="text-pink-400">ระบบคิดฐาน 10 (Analog Thinking):</strong> เป็นระบบคิดแบบอนุโลม มีหลายระดับ มีพื้นที่สีเทา มักอ้างเหตุผลความจำเป็นส่วนตัว ทำให้เกิดการทุจริตประพฤติมิชอบ</li>
+        </ul>
+      </div>
+
+      <!-- Restart Button -->
+      <button onclick="restartGame()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 font-bold text-base shadow-lg shadow-cyan-500/20 hover:scale-[1.01] transition duration-200 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-rotate-right text-lg"></i> เล่นใหม่อีกครั้ง (Try Again)
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Help / Instructions Modal -->
+  <div id="helpModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="w-full max-w-lg glass-panel p-6 rounded-3xl border border-cyan-500/30 text-left relative">
+      <button onclick="toggleHelpModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <h3 class="text-xl font-bold text-cyan-400 mb-3 flex items-center gap-2">
+        <i class="fa-solid fa-circle-info"></i> คู่มือและคำแนะนำการใช้งาน
+      </h3>
+      <div class="space-y-3 text-xs text-gray-300 leading-relaxed max-h-[70vh] overflow-y-auto pr-1">
+        <p><strong class="text-white">วัตถุประสงค์:</strong> ฝึกฝนทักษะการแยกแยะระหว่างประโยชน์ส่วนตนและประโยชน์ส่วนรวม ตามหลักสูตรการศึกษาต้านทุจริต</p>
+        <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+          <div class="text-emerald-400 font-bold">โซนคิดฐาน 2 (ฝั่งซ้ายของหน้าจอ):</div>
+          <p>เลือกฝั่งนี้เมื่อกรณีตัวอย่างเป็นพฤติกรรมที่ ยึดถือประโยชน์ส่วนรวม ไม่นำเรื่องส่วนตัวมาปะปน หรือเป็นการปฏิเสธการทุจริตอย่างเด็ดขาด</p>
+          <div class="text-pink-400 font-bold">โซนคิดฐาน 10 (ฝั่งขวาของหน้าจอ):</div>
+          <p>เลือกฝั่งนี้เมื่อกรณีตัวอย่างสะท้อน พฤติกรรมปะปนประโยชน์ส่วนตน มีการอนุโลม หรือใช้ทรัพย์สินหลวงเพื่อประโยชน์ส่วนตัว</p>
+        </div>
+        <p><strong class="text-white">การควบคุมกล้อง AR:</strong> ขยับมือข้างใดข้างหนึ่งไปแตะค้างในกล่องตัวเลือกเป็นเวลา 1 วินาที ระบบจะประมวลผลทันทีเมื่อเกจวงกลมเต็ม</p>
+      </div>
+      <button onclick="toggleHelpModal()" class="w-full mt-5 py-2.5 rounded-xl bg-slate-800 text-cyan-400 font-semibold text-xs border border-cyan-500/30 hover:bg-slate-700">
+        เข้าใจแล้ว เข้าสู่เกม
+      </button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="w-full py-2 text-center text-[11px] text-gray-500 z-10">
+    นวัตกรรมสื่อการเรียนรู้ AR Motion Game โดย AI สั่ง ครูยี สอนสร้างสื่อ AR 😊
+  </footer>
+
+  <script>
+    /* =========================================================================
+     * WEB AUDIO API SOUND SYNTHESIZER (No External Sound Files)
+     * ========================================================================= */
+    let audioCtx = null;
+    let isMuted = false;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function toggleAudio() {
+      isMuted = !isMuted;
+      const icon = document.getElementById('muteIcon');
+      const text = document.getElementById('muteText');
+      if (isMuted) {
+        icon.className = 'fa-solid fa-volume-xmark text-pink-400';
+        text.innerText = 'ปิดเสียง';
+      } else {
+        icon.className = 'fa-solid fa-volume-high text-cyan-400';
+        text.innerText = 'เปิดเสียง';
+        playSound('beep', 600, 0.05);
+      }
+    }
+
+    function playSound(type, freq = 440, duration = 0.1) {
+      if (isMuted) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        const now = audioCtx.currentTime;
+
+        if (type === 'beep') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+          osc.start(now);
+          osc.stop(now + duration);
+        } 
+        else if (type === 'hover') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(350, now);
+          osc.frequency.exponentialRampToValueAtTime(600, now + 0.08);
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+          osc.start(now);
+          osc.stop(now + 0.08);
+        }
+        else if (type === 'correct') {
+          // Energetic 3-note chime
+          const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+          notes.forEach((n, i) => {
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.connect(g);
+            g.connect(audioCtx.destination);
+            o.type = 'sine';
+            o.frequency.setValueAtTime(n, now + i * 0.07);
+            g.gain.setValueAtTime(0.15, now + i * 0.07);
+            g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.2);
+            o.start(now + i * 0.07);
+            o.stop(now + i * 0.07 + 0.2);
+          });
+        } 
+        else if (type === 'wrong') {
+          // Low error buzz
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(180, now);
+          osc.frequency.linearRampToValueAtTime(110, now + 0.3);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+          osc.start(now);
+          osc.stop(now + 0.3);
+        }
+        else if (type === 'gameover') {
+          // Victory fanfare / finish sound
+          const notes = [440, 554.37, 659.25, 880];
+          notes.forEach((n, i) => {
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.connect(g);
+            g.connect(audioCtx.destination);
+            o.type = 'triangle';
+            o.frequency.setValueAtTime(n, now + i * 0.12);
+            g.gain.setValueAtTime(0.2, now + i * 0.12);
+            g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.4);
+            o.start(now + i * 0.12);
+            o.stop(now + i * 0.12 + 0.4);
+          });
+        }
+      } catch (e) {
+        console.warn("Audio synthesis error:", e);
+      }
+    }
+
+    /* =========================================================================
+     * DILEMMA CASE SCENARIO MATRIX QUESTION BANK
+     * ========================================================================= */
+    const dilemmaBank = [
+      {
+        id: 1,
+        category: "การใช้ทรัพย์สินราชการ",
+        text: "คุณครูนำกระดาษ A4 ของโรงเรียนไปใช้พิมพ์เอกสารขายของออนไลน์ส่วนตัวที่บ้าน",
+        correctAnswer: "base10", // สะท้อนการคิดแบบฐาน 10 (ปะปนประโยชน์ส่วนตน)
+        explanation: "การใช้ทรัพย์สินหลวงเพื่อเรื่องส่วนตัวถือเป็นระบบคิดฐาน 10 (ปะปน) ซึ่งผิดหลักจริยธรรม ระบบคิดฐาน 2 ต้องไม่ทำเด็ดขาด!",
+        badge: "ทรัพย์สินส่วนรวม vs ส่วนตัว"
+      },
+      {
+        id: 2,
+        category: "การจัดซื้อจัดจ้าง / นโยบาย",
+        text: "เจ้าหน้าที่ปฏิเสธการรับซองของขวัญและรับเลี้ยงอาหารจากผู้รับเหมาโครงการสร้างอาคาร",
+        correctAnswer: "base2", // สะท้อนระบบคิดฐาน 2 (ซื่อสัตย์/ยึด No Gift Policy)
+        explanation: "การปฏิเสธของขวัญและประโยชน์แอบแฝงอย่างเด็ดขาด คือหัวใจของ 'ระบบคิดฐาน 2' (ไม่ปะปนประโยชน์ส่วนตน)",
+        badge: "No Gift Policy"
+      },
+      {
+        id: 3,
+        category: "การใช้รถยนต์ราชการ",
+        text: "ผู้บริหารสั่งให้นำรถยนต์ของหน่วยงานไปรับส่งบุตรหลานไปเรียนพิเศษหลังเลิกงาน",
+        correctAnswer: "base10", // พฤติกรรมฐาน 10
+        explanation: "รถยนต์ส่วนราชการมีไว้ใช้เพื่อภารกิจหลวงเท่านั้น การนำไปใช้เรื่องครอบครัวคือระบบคิดฐาน 10 (เบียดบังส่วนรวม)",
+        badge: "ใช้รถหลวงเพื่อเรื่องส่วนตัว"
+      },
+      {
+        id: 4,
+        category: "การใช้น้ำประปา/ไฟฟ้าราชการ",
+        text: "เจ้าหน้าที่นำแบตเตอรี่รถจักรยานยนต์ไฟฟ้าส่วนตัวมาชาร์จที่สำนักงานทุกวัน",
+        correctAnswer: "base10", // พฤติกรรมฐาน 10
+        explanation: "การชาร์จไฟส่วนตัวเป็นประจำถือเป็นการดึงกระแสไฟฟ้าหลวงไปใช้ประโยชน์ส่วนตน (ระบบคิดฐาน 10)",
+        badge: "ใช้ไฟฟ้าหลวงเพื่อส่วนตัว"
+      },
+      {
+        id: 5,
+        category: "การปฏิบัติงานและเวลา",
+        text: "ปฏิเสธการลงเวลาปฏิบัติงานแทนเพื่อนร่วมงานที่เดินทางมาทำงานสาย",
+        correctAnswer: "base2", // ยึดฐาน 2
+        explanation: "การปฏิเสธไม่เซ็นชื่อแทนกัน สะท้อนระบบคิดฐาน 2 ยึดถือความถูกต้องและซื่อสัตย์ต่อเวลาตรงไปตรงมา",
+        badge: "ตรงต่อเวลาและซื่อสัตย์"
+      },
+      {
+        id: 6,
+        category: "การให้บริการประชาชน",
+        text: "เจ้าหน้าที่ให้ญาติสนิทแทรกคิวรับการอนุมัติเอกสารก่อนประชาชนที่มารอตามลำดับ",
+        correctAnswer: "base10", // พฤติกรรมฐาน 10
+        explanation: "การใช้ระบบพวกพ้อง/ระบบระบบเอื้อประโยชน์ให้พวกพ้อง คือลักษณะเด่นของระบบคิดฐาน 10 ที่ต้องขจัดออกไป",
+        badge: "ระบบพวกพ้อง vs เท่าเทียม"
+      },
+      {
+        id: 7,
+        category: "การใช้เวลาราชการ",
+        text: "ใช้วันลาพักร้อนตามสิทธิทางกฎหมายเพื่อไปทำธุระครอบครัวอย่างถูกต้อง",
+        correctAnswer: "base2", // ทำถูกต้องตามกฎระเบียบ
+        explanation: "การใช้สัตย์ตามสิทธิและขั้นตอนระเบียบที่ถูกต้อง ถือเป็นปฏิบัติตามระบบคิดฐาน 2 (ไม่แอบอ้างเวลาราชการ)",
+        badge: "การปฏิบัติตามระเบียบ"
+      },
+      {
+        id: 8,
+        category: "ขัดกันแห่งผลประโยชน์",
+        text: "กรรมการตรวจรับพัสดุถอนตัวจากการพิจารณา เมื่อพบว่าบริษัทคู่สัญญาเป็นของพี่ชาย",
+        correctAnswer: "base2", // ยึดฐาน 2 ถอนตัวป้องกัน Conflict of Interest
+        explanation: "การถอนตัวเพื่อป้องกันผลประโยชน์ทับซ้อน (Conflict of Interest) คือตัวอย่างที่ชัดเจนที่สุดของระบบคิดฐาน 2",
+        badge: "ป้องกันผลประโยชน์ทับซ้อน"
+      },
+      {
+        id: 9,
+        category: "อุปกรณ์สวัสดิการ",
+        text: "นำแก้วน้ำส่วนตัวมาเติมน้ำดื่มจากตู้กรองน้ำสวัสดิการของหน่วยงานขณะปฏิบัติงาน",
+        correctAnswer: "base2", // เป็นสวัสดิการตามสิทธิที่จัดไว้ให้บุคลากร
+        explanation: "สวัสดิการพื้นฐานที่จัดไว้ให้บุคลากรขณะปฏิบัติงานเป็นสิทธิตามระเบียบ ไม่ถือเป็นการเบียดบังทรัพย์สินหลวง",
+        badge: "สวัสดิการตามสิทธิ"
+      },
+      {
+        id: 10,
+        category: "การเบิกจ่ายงบประมาณ",
+        text: "เบิกค่าเบี้ยเลี้ยงเดินทางสัมมนาเต็มจำนวน ทั้งที่เจ้าภาพจัดอาหารกลางวันให้ฟรี",
+        correctAnswer: "base10", // พฤติกรรมฐาน 10
+        explanation: "การเบิกเงินซ้ำซ้อนหรือแจ้งข้อมูลไม่ตรงความเป็นจริงเพื่อรับเงินเพิ่ม คือระบบคิดฐาน 10 ที่ทุจริตงบประมาณ",
+        badge: "เบิกจ่ายซ้ำซ้อน"
+      }
+    ];
+
+    /* =========================================================================
+     * GAME STATE VARIABLES & CONFIGURATION
+     * ========================================================================= */
+    let currentDifficulty = 'normal';
+    let gameTimer = null;
+    let timeRemaining = 60;
+    let score = 0;
+    let streak = 0;
+    let maxStreak = 0;
+    let currentQuestionIndex = 0;
+    let totalQuestions = 10;
+    let correctCount = 0;
+    let activeQuestions = [];
+
+    // Hover Dwell State for Hand Gesture Selection
+    let hoverState = {
+      target: null, // 'base2' or 'base10'
+      progress: 0,  // 0.0 to 1.0
+      requiredTime: 0.8, // seconds needed to hover
+      lastTimestamp: null
+    };
+
+    let isProcessingAnswer = false;
+    let isCameraActive = false;
+
+    // DOM Elements
+    const startScreen = document.getElementById('startScreen');
+    const gameplayScreen = document.getElementById('gameplayScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const arCanvas = document.getElementById('arCanvas');
+    const ctx = arCanvas.getContext('2d');
+    const webcamVideo = document.getElementById('webcamVideo');
+
+    /* =========================================================================
+     * GAME FLOW CONTROLLERS
+     * ========================================================================= */
+    function setDifficulty(diff) {
+      currentDifficulty = diff;
+      document.getElementById('diffEasy').className = "flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold border text-gray-400 border-slate-700 hover:border-emerald-500";
+      document.getElementById('diffNormal').className = "flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold border text-gray-400 border-slate-700 hover:border-cyan-500";
+      document.getElementById('diffHard').className = "flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold border text-gray-400 border-slate-700 hover:border-pink-500";
+
+      if (diff === 'easy') {
+        timeRemaining = 90;
+        document.getElementById('diffEasy').className = "flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold border border-emerald-500 bg-emerald-500/20 text-emerald-300";
+      } else if (diff === 'normal') {
+        timeRemaining = 60;
+        document.getElementById('diffNormal').className = "flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold border border-cyan-500 bg-cyan-500/20 text-cyan-300";
+      } else {
+        timeRemaining = 40;
+        document.getElementById('diffHard').className = "flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold border border-pink-500 bg-pink-500/20 text-pink-300";
+      }
+      playSound('hover');
+    }
+
+    function toggleHelpModal() {
+      const modal = document.getElementById('helpModal');
+      modal.classList.toggle('hidden');
+      playSound('beep');
+    }
+
+    function initAndStartGame() {
+      initAudio();
+      document.getElementById('cameraLoadingText').classList.remove('hidden');
+      
+      // Shuffle dilemmas
+      activeQuestions = [...dilemmaBank].sort(() => Math.random() - 0.5);
+      currentQuestionIndex = 0;
+      score = 0;
+      streak = 0;
+      maxStreak = 0;
+      correctCount = 0;
+
+      // Update HUD
+      document.getElementById('hudScore').innerText = score;
+      document.getElementById('hudStreak').innerText = streak + 'x';
+      document.getElementById('hudQuestionNum').innerText = currentQuestionIndex + 1;
+      document.getElementById('hudTotalQuestions').innerText = totalQuestions;
+
+      // Start MediaPipe Pose Camera Setup
+      setupCameraAndPose();
+    }
+
+    function startGameplayUI() {
+      startScreen.classList.add('hidden');
+      gameplayScreen.classList.remove('hidden');
+      gameplayScreen.classList.add('flex');
+      gameOverScreen.classList.add('hidden');
+
+      loadQuestion(currentQuestionIndex);
+      startTimer();
+    }
+
+    function startTimer() {
+      clearInterval(gameTimer);
+      document.getElementById('hudTimer').innerText = timeRemaining + 's';
+
+      gameTimer = setInterval(() => {
+        timeRemaining--;
+        document.getElementById('hudTimer').innerText = timeRemaining + 's';
+
+        if (timeRemaining <= 5 && timeRemaining > 0) {
+          playSound('beep', 800, 0.05);
+        }
+
+        if (timeRemaining <= 0) {
+          clearInterval(gameTimer);
+          endGame();
+        }
+      }, 1000);
+    }
+
+    function loadQuestion(index) {
+      if (index >= totalQuestions || index >= activeQuestions.length) {
+        endGame();
+        return;
+      }
+
+      const q = activeQuestions[index];
+      document.getElementById('hudQuestionNum').innerText = index + 1;
+      document.getElementById('caseCategory').innerText = q.category;
+      document.getElementById('scenarioText').innerText = `"${q.text}"`;
+
+      isProcessingAnswer = false;
+      hoverState.target = null;
+      hoverState.progress = 0;
+    }
+
+    function evaluateAnswer(selectedChoice) {
+      if (isProcessingAnswer) return;
+      isProcessingAnswer = true;
+
+      const q = activeQuestions[currentQuestionIndex];
+      const isCorrect = (selectedChoice === q.correctAnswer);
+
+      const overlay = document.getElementById('feedbackOverlay');
+      const icon = document.getElementById('feedbackIcon');
+      const title = document.getElementById('feedbackTitle');
+      const desc = document.getElementById('feedbackDesc');
+      const badge = document.getElementById('feedbackBadge');
+
+      if (isCorrect) {
+        playSound('correct');
+        score += 100 + (streak * 20);
+        streak++;
+        if (streak > maxStreak) maxStreak = streak;
+        correctCount++;
+
+        icon.className = "w-20 h-20 rounded-full flex items-center justify-center text-4xl mb-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 shadow-neon-green";
+        icon.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+        title.className = "text-2xl font-extrabold text-emerald-400 mb-1";
+        title.innerText = "ถูกต้อง! วิเคราะห์แยกแยะแม่นยำ";
+      } else {
+        playSound('wrong');
+        streak = 0;
+
+        icon.className = "w-20 h-20 rounded-full flex items-center justify-center text-4xl mb-3 bg-pink-500/20 text-pink-400 border border-pink-500/50 shadow-neon-pink";
+        icon.innerHTML = '<i class="fa-solid fa-circle-xmark"></i>';
+        title.className = "text-2xl font-extrabold text-pink-400 mb-1";
+        title.innerText = "ยังไม่ถูกต้อง! ระวังการปะปนประโยชน์";
+      }
+
+      document.getElementById('hudScore').innerText = score;
+      document.getElementById('hudStreak').innerText = streak + 'x';
+
+      desc.innerText = q.explanation;
+      badge.innerText = `เรื่อง: ${q.badge}`;
+      overlay.classList.remove('hidden');
+
+      setTimeout(() => {
+        overlay.classList.add('hidden');
+        currentQuestionIndex++;
+        if (currentQuestionIndex < totalQuestions && timeRemaining > 0) {
+          loadQuestion(currentQuestionIndex);
+        } else {
+          endGame();
+        }
+      }, 2400);
+    }
+
+    function endGame() {
+      clearInterval(gameTimer);
+      playSound('gameover');
+
+      gameplayScreen.classList.add('hidden');
+      gameplayScreen.classList.remove('flex');
+      gameOverScreen.classList.remove('hidden');
+
+      const accuracy = Math.round((correctCount / totalQuestions) * 100);
+      document.getElementById('finalScore').innerText = score;
+      document.getElementById('finalCorrect').innerText = `${correctCount}/${totalQuestions}`;
+      document.getElementById('finalAccuracy').innerText = `${accuracy}%`;
+      document.getElementById('finalMaxStreak').innerText = `${maxStreak}x`;
+
+      const rankBadge = document.getElementById('rankBadge');
+      if (accuracy >= 80) {
+        rankBadge.className = "px-5 py-2 rounded-2xl bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-bold text-lg mb-6 shadow-lg shadow-emerald-500/10";
+        rankBadge.innerText = "🏆 ระดับ: ผู้พิทักษ์ประโยชน์ส่วนรวม (Base-2 Master)";
+      } else if (accuracy >= 50) {
+        rankBadge.className = "px-5 py-2 rounded-2xl bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 font-bold text-lg mb-6 shadow-lg shadow-cyan-500/10";
+        rankBadge.innerText = "🛡️ ระดับ: พลเมืองตื่นรู้ต้านทุจริต (Base-2 Defender)";
+      } else {
+        rankBadge.className = "px-5 py-2 rounded-2xl bg-amber-500/20 border border-amber-500/50 text-amber-300 font-bold text-lg mb-6 shadow-lg shadow-amber-500/10";
+        rankBadge.innerText = "⚠️ ระดับ: ต้องทบทวนการคิดแยกแยะ (Base-10 Risk)";
+      }
+    }
+
+    function restartGame() {
+      gameOverScreen.classList.add('hidden');
+      startScreen.classList.remove('hidden');
+      document.getElementById('cameraLoadingText').classList.add('hidden');
+    }
+
+    /* =========================================================================
+     * MEDIAPIPE POSE & AR CAMERA CANVAS RENDER ENGINE
+     * ========================================================================= */
+    let pose = null;
+    let camera = null;
+
+    function setupCameraAndPose() {
+      if (isCameraActive) {
+        startGameplayUI();
+        return;
+      }
+
+      pose = new Pose({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+      });
+
+      pose.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        enableSegmentation: false,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      });
+
+      pose.onResults(onPoseResults);
+
+      camera = new Camera(webcamVideo, {
+        onFrame: async () => {
+          await pose.send({ image: webcamVideo });
+        },
+        width: 1280,
+        height: 720
+      });
+
+      camera.start()
+        .then(() => {
+          isCameraActive = true;
+          document.getElementById('cameraLoadingText').classList.add('hidden');
+          startGameplayUI();
+        })
+        .catch((err) => {
+          console.error("Camera activation failed:", err);
+          alert("ไม่สามารถเข้าถึงกล้องเว็บแคมได้ กรุณาอนุญาตการใช้งานกล้องในเบราว์เซอร์");
+          document.getElementById('cameraLoadingText').classList.add('hidden');
+        });
+    }
+
+    function onPoseResults(results) {
+      if (!arCanvas) return;
+
+      // Adjust Canvas size to match container dynamically
+      const width = arCanvas.parentElement.clientWidth;
+      const height = arCanvas.parentElement.clientHeight;
+      if (arCanvas.width !== width || arCanvas.height !== height) {
+        arCanvas.width = width;
+        arCanvas.height = height;
+      }
+
+      ctx.save();
+      ctx.clearRect(0, 0, width, height);
+
+      // 1. Render Mirrored Video Stream
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.translate(-width, 0);
+      if (results.image) {
+        ctx.drawImage(results.image, 0, 0, width, height);
+      }
+      ctx.restore();
+
+      // Semi-transparent dark overlay for better UI contrast
+      ctx.fillStyle = 'rgba(6, 9, 19, 0.45)';
+      ctx.fillRect(0, 0, width, height);
+
+      // Interactive Target Zones Dimensions
+      const zoneW = Math.min(width * 0.32, 220);
+      const zoneH = Math.min(height * 0.45, 240);
+      const zoneY = height - zoneH - 25;
+
+      // Left Zone: Base-2 (ประโยชน์ส่วนรวม) -> Render on Left side of screen
+      const zoneLeftX = 25;
+      // Right Zone: Base-10 (ประโยชน์ส่วนตน/อนุโลม) -> Render on Right side of screen
+      const zoneRightX = width - zoneW - 25;
+
+      // Draw Zone UI Box 1: Left (Base 2)
+      drawTargetZone(
+        zoneLeftX, zoneY, zoneW, zoneH,
+        "ระบบคิดฐาน 2", "(ประโยชน์ส่วนรวม)",
+        "#00ff66", "base2"
+      );
+
+      // Draw Zone UI Box 2: Right (Base 10)
+      drawTargetZone(
+        zoneRightX, zoneY, zoneW, zoneH,
+        "ระบบคิดฐาน 10", "(ปะปนประโยชน์ส่วนตน)",
+        "#ff007f", "base10"
+      );
+
+      // Track Hand Positions
+      let detectedHands = [];
+
+      if (results.poseLandmarks) {
+        document.getElementById('outOfFrameWarning').classList.add('hidden');
+
+        // Draw Glowing Neon Skeleton Overlay
+        drawNeonSkeleton(results.poseLandmarks, width, height);
+
+        // Get Right Wrist (#16) & Index (#20) AND Left Wrist (#15) & Index (#19)
+        // Note: Landmarks are normalized (0..1). Since we mirror canvas, mirrored X = (1 - lm.x) * width
+        const landmarks = results.poseLandmarks;
+
+        // Left Hand Index Finger Tip (#19)
+        if (landmarks[19] && landmarks[19].visibility > 0.4) {
+          detectedHands.push({
+            x: (1 - landmarks[19].x) * width,
+            y: landmarks[19].y * height,
+            side: 'Left'
+          });
+        }
+        // Right Hand Index Finger Tip (#20)
+        if (landmarks[20] && landmarks[20].visibility > 0.4) {
+          detectedHands.push({
+            x: (1 - landmarks[20].x) * width,
+            y: landmarks[20].y * height,
+            side: 'Right'
+          });
+        }
+      } else {
+        // Show out-of-frame indicator
+        document.getElementById('outOfFrameWarning').classList.remove('hidden');
+      }
+
+      // 2. Check Dwell Hover Logic with Hands
+      let currentHoveredZone = null;
+
+      detectedHands.forEach(hand => {
+        // Draw Neon Halo Cursor on Hand
+        drawHandCursor(hand.x, hand.y);
+
+        // Check if hand is inside Left Zone (Base 2)
+        if (hand.x >= zoneLeftX && hand.x <= zoneLeftX + zoneW &&
+            hand.y >= zoneY && hand.y <= zoneY + zoneH) {
+          currentHoveredZone = 'base2';
+          drawHoverProgressArc(hand.x, hand.y, hoverState.progress, '#00ff66');
+        }
+
+        // Check if hand is inside Right Zone (Base 10)
+        if (hand.x >= zoneRightX && hand.x <= zoneRightX + zoneW &&
+            hand.y >= zoneY && hand.y <= zoneY + zoneH) {
+          currentHoveredZone = 'base10';
+          drawHoverProgressArc(hand.x, hand.y, hoverState.progress, '#ff007f');
+        }
+      });
+
+      // Update Hover Progress Dwell Gauge
+      const now = performance.now();
+      if (!hoverState.lastTimestamp) hoverState.lastTimestamp = now;
+      const dt = (now - hoverState.lastTimestamp) / 1000;
+      hoverState.lastTimestamp = now;
+
+      if (currentHoveredZone && !isProcessingAnswer) {
+        if (hoverState.target === currentHoveredZone) {
+          hoverState.progress += dt / hoverState.requiredTime;
+          if (hoverState.progress >= 1.0) {
+            hoverState.progress = 1.0;
+            evaluateAnswer(currentHoveredZone);
+          }
+        } else {
+          hoverState.target = currentHoveredZone;
+          hoverState.progress = 0.05;
+          playSound('hover');
+        }
+      } else {
+        hoverState.target = null;
+        hoverState.progress = Math.max(0, hoverState.progress - dt * 2);
+      }
+
+      ctx.restore();
+    }
+
+    /* =========================================================================
+     * CANVAS DRAWING HELPERS & NEON GRAPHICS
+     * ========================================================================= */
+    function drawTargetZone(x, y, w, h, title, subtitle, colorHex, type) {
+      const isHovered = (hoverState.target === type);
+
+      ctx.save();
+      // Box Background
+      ctx.fillStyle = isHovered ? `${colorHex}33` : 'rgba(15, 23, 42, 0.75)';
+      ctx.strokeStyle = colorHex;
+      ctx.lineWidth = isHovered ? 4 : 2;
+
+      // Glowing shadow
+      ctx.shadowColor = colorHex;
+      ctx.shadowBlur = isHovered ? 25 : 10;
+
+      // Rounded rectangle path
+      const r = 20;
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Text Titles
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 16px Kanit, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(title, x + w / 2, y + 38);
+
+      ctx.fillStyle = colorHex;
+      ctx.font = '600 12px Kanit, sans-serif';
+      ctx.fillText(subtitle, x + w / 2, y + 60);
+
+      // Icon placeholder graphic
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y + h / 2 + 15, 22, 0, Math.PI * 2);
+      ctx.fillStyle = `${colorHex}22`;
+      ctx.fill();
+      ctx.strokeStyle = colorHex;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '14px "Font Awesome 6 Free"';
+      ctx.fillText(type === 'base2' ? '0/1' : '10', x + w / 2, y + h / 2 + 20);
+
+      ctx.restore();
+    }
+
+    function drawHandCursor(x, y) {
+      ctx.save();
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 15;
+
+      ctx.beginPath();
+      ctx.arc(x, y, 16, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.4)';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawHoverProgressArc(x, y, progress, colorHex) {
+      ctx.save();
+      ctx.shadowColor = colorHex;
+      ctx.shadowBlur = 20;
+
+      ctx.beginPath();
+      ctx.arc(x, y, 28, -Math.PI / 2, (-Math.PI / 2) + (Math.PI * 2 * progress));
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = colorHex;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawNeonSkeleton(landmarks, width, height) {
+      // Key Pose Connections
+      const connections = [
+        [11, 12], [11, 13], [13, 15], // Left arm
+        [12, 14], [14, 16],           // Right arm
+        [11, 23], [12, 24], [23, 24]  // Torso
+      ];
+
+      ctx.save();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#00f0ff';
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 12;
+
+      connections.forEach(([i, j]) => {
+        const lm1 = landmarks[i];
+        const lm2 = landmarks[j];
+        if (lm1 && lm2 && lm1.visibility > 0.4 && lm2.visibility > 0.4) {
+          ctx.beginPath();
+          ctx.moveTo((1 - lm1.x) * width, lm1.y * height);
+          ctx.lineTo((1 - lm2.x) * width, lm2.y * height);
+          ctx.stroke();
+        }
+      });
+
+      // Draw Joint Glowing Dots
+      [11, 12, 13, 14, 15, 16].forEach(idx => {
+        const lm = landmarks[idx];
+        if (lm && lm.visibility > 0.4) {
+          ctx.beginPath();
+          ctx.arc((1 - lm.x) * width, lm.y * height, 6, 0, Math.PI * 2);
+          ctx.fillStyle = '#00ff66';
+          ctx.fill();
+        }
+      });
+
+      ctx.restore();
+    }
+  </script>
+</body>
+</html>

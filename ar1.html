@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Motion Game: Core Template</title>
+    <title>AR Motion Game: ระบบคิดฐาน 2 vs ฐาน 10</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
@@ -13,10 +13,10 @@
         body { font-family: 'Kanit', sans-serif; margin: 0; overflow: hidden; background-color: #000; color: white; }
         .mirror { transform: scaleX(-1); object-fit: cover; width: 100vw; height: 100vh; position: absolute; z-index: 1; }
         .ui-layer { position: absolute; z-index: 10; width: 100vw; height: 100vh; pointer-events: none; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .panel { background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); border: 2px solid #0ff; border-radius: 20px; box-shadow: 0 0 20px rgba(0, 255, 255, 0.3); pointer-events: auto; }
-        .choice { width: 280px; height: 180px; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 5px solid; border-radius: 20px; background: rgba(0,0,0,0.8); transition: all 0.2s; pointer-events: auto; }
-        .choice-left { border-color: #0f0; box-shadow: 0 0 25px rgba(0,255,0,0.5); }
-        .choice-right { border-color: #f0f; box-shadow: 0 0 25px rgba(255,0,255,0.5); }
+        .panel { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); border: 2px solid #0ff; border-radius: 20px; box-shadow: 0 0 20px rgba(0, 255, 255, 0.3); pointer-events: auto; }
+        .choice { width: 300px; height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 5px solid; border-radius: 20px; background: rgba(0,0,0,0.8); transition: all 0.2s; pointer-events: auto; }
+        .choice-left { border-color: #f00; box-shadow: 0 0 25px rgba(255,0,0,0.5); }
+        .choice-right { border-color: #0f0; box-shadow: 0 0 25px rgba(0,255,0,0.5); }
         #progress-ring { position: absolute; width: 90px; height: 90px; border-radius: 50%; border: 8px solid transparent; border-top-color: #0ff; border-right-color: #0ff; animation: spin 1s linear infinite; display: none; z-index: 20; transform: translate(-50%, -50%); pointer-events: none; }
         @keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
         .hidden { display: none !important; }
@@ -30,9 +30,9 @@
     <!-- 1. Start Screen -->
     <div id="start-screen" class="ui-layer">
         <div class="panel p-12 text-center w-11/12 max-w-4xl">
-            <h1 class="text-7xl font-black text-cyan-400 mb-6 drop-shadow-lg">AR MOTION CORE</h1>
-            <h2 class="text-4xl font-bold text-yellow-300 mb-8">Master Game Template</h2>
-            <div class="bg-gray-800 bg-opacity-80 p-8 rounded-2xl text-left inline-block mb-10 border border-gray-500 shadow-inner">
+            <h1 class="text-6xl font-black text-cyan-400 mb-6 drop-shadow-lg">AR MOTION: ฐาน 2 vs ฐาน 10</h1>
+            <h2 class="text-4xl font-bold text-yellow-300 mb-8">แยกแยะประโยชน์ส่วนตนและส่วนรวม</h2>
+            <div class="bg-gray-800 bg-opacity-80 p-8 rounded-2xl text-center inline-block mb-10 border border-gray-500 shadow-inner flex flex-col items-center justify-center">
                 <p class="text-2xl mb-4">🎮 <b>วิธีเล่น:</b> ยื่นมือซ้ายหรือขวา เข้าไปในกล่องคำตอบที่ถูกต้อง</p>
                 <p class="text-2xl mb-4">⏳ <b>การยืนยัน:</b> ค้างมือไว้ในกล่อง 1.5 วินาที เพื่อล็อคคำตอบ</p>
                 <p class="text-2xl text-yellow-200">📸 <b>คำแนะนำ:</b> ยืนห่างกล้อง 1.0-1.5 เมตร และอยู่ในที่สว่าง</p>
@@ -50,23 +50,24 @@
             <div class="panel px-10 py-4 text-4xl font-bold text-cyan-300">SCORE: <span id="score" class="text-white">0</span></div>
             <div id="warning" class="hidden bg-red-600 text-white px-8 py-4 rounded-2xl font-bold text-3xl animate-pulse shadow-[0_0_20px_#f00]">⚠️ ไม่พบผู้เล่นในเฟรม!</div>
             <div class="panel px-10 py-4 text-4xl font-bold flex items-center gap-6">
-                TIME: <span id="time" class="text-red-400">30</span>
+                TIME: <span id="time" class="text-red-400">60</span>
                 <button onclick="toggleMute()" id="mute-btn" class="bg-gray-700 hover:bg-gray-600 border border-gray-400 text-2xl px-6 py-2 rounded-lg text-white pointer-events-auto transition">🔊 เสียง: เปิด</button>
             </div>
         </div>
         
         <div class="flex-1 flex flex-col justify-center items-center w-full">
-            <div class="panel px-16 py-10 text-6xl font-black text-white text-center shadow-[0_0_40px_#ff0] border-yellow-400 max-w-5xl">
-                <span id="question">เตรียมตัว...</span>
+            <div class="panel px-12 py-10 text-3xl leading-relaxed font-bold text-white text-center shadow-[0_0_40px_#ff0] border-yellow-400 max-w-5xl">
+                <span id="question" class="block">เตรียมตัว...</span>
+                <span id="explanation" class="hidden block mt-6 text-2xl text-yellow-300 font-black"></span>
             </div>
         </div>
 
         <div class="w-full flex justify-between items-end mb-10 px-20">
-            <div id="box-left" class="choice choice-left" data-ans="1">
-                <h3 class="text-7xl font-black text-green-400 drop-shadow-md" id="ans-left">A</h3>
+            <div id="box-left" class="choice choice-left" data-ans="10">
+                <h3 class="text-5xl font-black text-red-400 drop-shadow-md" id="ans-left">ระบบฐาน 10</h3>
             </div>
             <div id="box-right" class="choice choice-right" data-ans="2">
-                <h3 class="text-7xl font-black text-fuchsia-400 drop-shadow-md" id="ans-right">B</h3>
+                <h3 class="text-5xl font-black text-green-400 drop-shadow-md" id="ans-right">ระบบฐาน 2</h3>
             </div>
         </div>
     </div>
@@ -129,27 +130,27 @@
         }
 
         // --- Game Mechanics ---
-        let score = 0; let time = 30; let timerInterval; let gameState = 'START'; let currentCorrect = 1;
+        let score = 0; let time = 60; let timerInterval; let gameState = 'START'; 
+        let currentCorrect = 1; let currentQ = null;
 
-        // Sample Data for the Template
-const questions = [
-        { q: "เครื่องมือช่างของสถาบัน อายูเอากลับไปรับจ้างซ่อมงานนอกเวลาเพื่อหารายได้พิเศษ ดีออก ไม่ต้องซื้อให้สิ้นเปลื้อง", ans: 10, exp: "เครื่องมือของแผนกเป็นทรัพย์สินราชการ การนำไปใช้หาประโยชน์ส่วนตัวถือเป็นระบบคิดฐาน 10 (การเบียดบัง)" },
-        { q: "สุชาติ นักศึกษาฝึกงาน เห็นช่างบริษัท แอบหยิบอะไหล่รถยนต์ไปใช้ส่วนตัว กระซิบบอกหัวหน้างานทันที", ans: 2, exp: "กล้ายืนหยัดในสิ่งที่ถูกต้อง โดยแยกแยะความสัมพันธ์ส่วนตัวออกจากความซื่อสัตย์ต่อองค์กร (ระบบคิดฐาน 2)" },
-        { q: "ซากี แอบใช้ 3D-Printer ของแผนก พิมพ์ของเล่นสะสมส่วนตัว ก็ใช้เส้นพลาสติกแค่นิดเดียวเอง", ans: 10, exp: "การคิดว่า 'แค่นิดเดียวไม่เป็นไร' เป็นข้ออ้างคลาสสิกของการนำประโยชน์ส่วนตนมาปะปนกับส่วนรวม (ระบบคิดฐาน 10)" },
-        { q: "สมสวย ประธานสโมสรนักศึกษา ไม่อนุญาตให้ สมหญิง เบิกกระดาษไปใช้ฟรีๆ ถึงจะเป็นญาติสนิท", ans: 2, exp: "แยกแยะบทบาทหน้าที่ชัดเจน ไม่ใช้ความสนิทสนมมาเอื้อผลประโยชน์ให้พวกพ้อง (ระบบคิดฐาน 2)" },
-        { q: "อันอัน จะไป Big-C พอดี สมชาย ข่วยขับรถยนต์ของแผนก ไปแวะรับส่งหน่อยสิ ระหว่างออกไปธุระให้วิทยาลัย", ans: 10, exp: "ถือเป็นการนำเวลาและทรัพยากรของส่วนรวม (น้ำมันรถ, รถยนต์) มาปะปนกับเรื่องส่วนตัว (ระบบคิดฐาน 10)" }
-    ];
+        const questions = [
+            { q: "เครื่องมือช่างของสถาบัน อายูเอากลับไปรับจ้างซ่อมงานนอกเวลาเพื่อหารายได้พิเศษ ดีออก ไม่ต้องซื้อให้สิ้นเปลือง", ans: 10, exp: "เครื่องมือของแผนกเป็นทรัพย์สินราชการ การนำไปใช้หาประโยชน์ส่วนตัวถือเป็นระบบคิดฐาน 10 (การเบียดบัง)" },
+            { q: "สุชาติ นักศึกษาฝึกงาน เห็นช่างบริษัท แอบหยิบอะไหล่รถยนต์ไปใช้ส่วนตัว กระซิบบอกหัวหน้างานทันที", ans: 2, exp: "กล้ายืนหยัดในสิ่งที่ถูกต้อง โดยแยกแยะความสัมพันธ์ส่วนตัวออกจากความซื่อสัตย์ต่อองค์กร (ระบบคิดฐาน 2)" },
+            { q: "ซากี แอบใช้ 3D-Printer ของแผนก พิมพ์ของเล่นสะสมส่วนตัว ก็ใช้เส้นพลาสติกแค่นิดเดียวเอง", ans: 10, exp: "การคิดว่า 'แค่นิดเดียวไม่เป็นไร' เป็นข้ออ้างคลาสสิกของการนำประโยชน์ส่วนตนมาปะปนกับส่วนรวม (ระบบคิดฐาน 10)" },
+            { q: "สมสวย ประธานสโมสรนักศึกษา ไม่อนุญาตให้ สมหญิง เบิกกระดาษไปใช้ฟรีๆ ถึงจะเป็นญาติสนิท", ans: 2, exp: "แยกแยะบทบาทหน้าที่ชัดเจน ไม่ใช้ความสนิทสนมมาเอื้อผลประโยชน์ให้พวกพ้อง (ระบบคิดฐาน 2)" },
+            { q: "อันอัน จะไป Big-C พอดี สมชาย ช่วยขับรถยนต์ของแผนก ไปแวะรับส่งหน่อยสิ ระหว่างออกไปธุระให้วิทยาลัย", ans: 10, exp: "ถือเป็นการนำเวลาและทรัพยากรของส่วนรวม (น้ำมันรถ, รถยนต์) มาปะปนกับเรื่องส่วนตัว (ระบบคิดฐาน 10)" }
+        ];
 
         function startGame() {
             initAudio();
             document.getElementById('start-screen').classList.add('hidden');
             document.getElementById('play-screen').classList.remove('hidden');
             document.getElementById('play-screen').style.display = 'flex';
-            score = 0; time = 30; gameState = 'PLAY';
+            score = 0; time = 60; gameState = 'PLAY';
             updateUI(); nextQuestion();
             
             timerInterval = setInterval(() => {
-                if (gameState !== 'PLAY') return;
+                if (gameState !== 'PLAY') return; // หยุดเวลาตอนแสดงเฉลย
                 time--; document.getElementById('time').innerText = time;
                 if (time <= 5) {
                     document.getElementById('time').classList.add('animate-pulse', 'text-red-500');
@@ -160,16 +161,19 @@ const questions = [
         }
 
         function nextQuestion() {
-            const q = questions[Math.floor(Math.random() * questions.length)];
-            document.getElementById('question').innerText = q.q;
-            document.getElementById('ans-left').innerText = q.l;
-            document.getElementById('ans-right').innerText = q.r;
-            currentCorrect = q.ans;
+            currentQ = questions[Math.floor(Math.random() * questions.length)];
+            document.getElementById('question').innerText = currentQ.q;
+            document.getElementById('explanation').classList.add('hidden');
+            
+            // Map 10 -> Left (1), 2 -> Right (2)
+            currentCorrect = currentQ.ans === 10 ? 1 : 2;
         }
 
         function checkAnswer(selected) {
             if (gameState !== 'PLAY') return;
-            if (selected === currentCorrect) {
+            const isCorrect = (selected === currentCorrect);
+            
+            if (isCorrect) {
                 score += 10; playSound('correct');
                 document.getElementById('play-screen').style.backgroundColor = 'rgba(0,255,0,0.15)';
             } else {
@@ -177,8 +181,17 @@ const questions = [
                 document.getElementById('play-screen').style.backgroundColor = 'rgba(255,0,0,0.15)';
             }
             updateUI();
-            setTimeout(() => { document.getElementById('play-screen').style.backgroundColor = 'transparent'; }, 250);
-            nextQuestion();
+            
+            // แสดงคำอธิบาย (Pause Game)
+            gameState = 'PAUSE'; 
+            document.getElementById('explanation').innerText = "💡 เฉลย: " + currentQ.exp;
+            document.getElementById('explanation').classList.remove('hidden');
+            
+            setTimeout(() => { 
+                document.getElementById('play-screen').style.backgroundColor = 'transparent'; 
+                gameState = 'PLAY';
+                nextQuestion(); 
+            }, 4000); // รอ 4 วินาทีให้อ่านเฉลย
         }
 
         function endGame() {
@@ -215,14 +228,12 @@ const questions = [
                 lastDetectionTime = Date.now(); warning.classList.add('hidden');
                 
                 for (const landmarks of results.multiHandLandmarks) {
-                    // Neon Skeleton Magic
                     canvasCtx.shadowColor = '#0ff'; canvasCtx.shadowBlur = 15;
                     drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#ffffff', lineWidth: 5});
                     canvasCtx.shadowColor = '#f0f'; canvasCtx.shadowBlur = 10;
                     drawLandmarks(canvasCtx, landmarks, {color: '#ff00ff', lineWidth: 2, radius: 6});
                     
                     if (gameState === 'PLAY') {
-                        // Mirror Axis Map (Index Finger Tip)
                         const fx = (1 - landmarks[8].x) * window.innerWidth;
                         const fy = landmarks[8].y * window.innerHeight;
                         checkCollision(fx, fy);
